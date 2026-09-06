@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sms-operator-frontend
+    env: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 18.20.5
+      - key: VITE_API_URL
+        value: https://techsms.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
