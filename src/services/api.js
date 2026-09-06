@@ -221,6 +221,20 @@ export const numbersAPI = {
       };
     }
   },
+  // Export numbers
+  export: async () => {
+    try {
+      const response = await api.get('/api/numbers/export', { responseType: 'blob' });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to export numbers'
+        }
+      };
+    }
+  },
 };
 
 // ============ CDR ============
