@@ -5,17 +5,20 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://techsms.onrender.com';
 const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  timeout: 60000, // default 60s
 });
 
 // Request interceptor
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // Response interceptor
 api.interceptors.response.use(
@@ -41,21 +44,21 @@ export const authAPI = {
 export const adminAPI = {
   getUsers: async (page = 1, perPage = 20) => {
     try {
-      const response = await api.get('/api/admin/users', { 
-        params: { page, per_page: perPage } 
+      const response = await api.get('/api/admin/users', {
+        params: { page, per_page: perPage },
       });
       return response;
     } catch (error) {
-      // Return structured error response
       return {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to fetch users',
-          data: { users: [], total: 0, page: 1, per_page: 20, total_pages: 0 }
-        }
+          data: { users: [], total: 0, page: 1, per_page: 20, total_pages: 0 },
+        },
       };
     }
   },
+
   createUser: async (data) => {
     try {
       const response = await api.post('/api/admin/users/create', data);
@@ -64,11 +67,12 @@ export const adminAPI = {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to create user'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to create user',
+        },
       };
     }
   },
+
   deleteUser: async (userId) => {
     try {
       const response = await api.delete(`/api/admin/users/${userId}`);
@@ -77,11 +81,12 @@ export const adminAPI = {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to delete user'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to delete user',
+        },
       };
     }
   },
+
   changeRole: async (userId, role) => {
     try {
       const response = await api.post(`/api/admin/users/${userId}/role`, { role });
@@ -90,11 +95,12 @@ export const adminAPI = {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to change role'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to change role',
+        },
       };
     }
   },
+
   banUser: async (userId) => {
     try {
       const response = await api.post(`/api/admin/users/${userId}/ban`);
@@ -103,11 +109,12 @@ export const adminAPI = {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to ban user'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to ban user',
+        },
       };
     }
   },
+
   unbanUser: async (userId) => {
     try {
       const response = await api.post(`/api/admin/users/${userId}/unban`);
@@ -116,11 +123,12 @@ export const adminAPI = {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to unban user'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to unban user',
+        },
       };
     }
   },
+
   getStats: async () => {
     try {
       const response = await api.get('/api/admin/stats');
@@ -130,11 +138,12 @@ export const adminAPI = {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to get stats',
-          data: {}
-        }
+          data: { total_users: 0, total_numbers: 0, total_ranges: 0 },
+        },
       };
     }
   },
+
   getUserStats: async () => {
     try {
       const response = await api.get('/api/admin/user-stats');
@@ -144,8 +153,8 @@ export const adminAPI = {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to get user stats',
-          data: { users: [], total: 0, total_numbers: 0 }
-        }
+          data: { users: [], total: 0, total_numbers: 0 },
+        },
       };
     }
   },
@@ -155,18 +164,22 @@ export const adminAPI = {
 export const numbersAPI = {
   allocate: async (data) => {
     try {
-      const response = await api.post('/api/numbers/allocate', data);
+      // Increase timeout for large allocations
+      const response = await api.post('/api/numbers/allocate', data, {
+        timeout: 120000, // 2 minutes
+      });
       return response;
     } catch (error) {
       return {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to allocate numbers',
-          data: { allocated_numbers: [], count: 0 }
-        }
+          data: { allocated_numbers: [], count: 0 },
+        },
       };
     }
   },
+
   getMyNumbers: async () => {
     try {
       const response = await api.get('/api/numbers/my-numbers');
@@ -176,11 +189,12 @@ export const numbersAPI = {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to get numbers',
-          data: { numbers: [], count: 0 }
-        }
+          data: { numbers: [], count: 0 },
+        },
       };
     }
   },
+
   deallocate: async (numberId) => {
     try {
       const response = await api.delete(`/api/numbers/deallocate/${numberId}`);
@@ -189,11 +203,12 @@ export const numbersAPI = {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to deallocate number'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to deallocate number',
+        },
       };
     }
   },
+
   getEvents: async () => {
     try {
       const response = await api.get('/api/numbers/allocation-events');
@@ -203,11 +218,12 @@ export const numbersAPI = {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to get events',
-          data: { events: [], count: 0 }
-        }
+          data: { events: [], count: 0 },
+        },
       };
     }
   },
+
   deleteEvent: async (eventId) => {
     try {
       const response = await api.delete(`/api/numbers/delete-event/${eventId}`);
@@ -216,22 +232,24 @@ export const numbersAPI = {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to delete event'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to delete event',
+        },
       };
     }
   },
-  // Export numbers
+
   export: async () => {
     try {
-      const response = await api.get('/api/numbers/export', { responseType: 'blob' });
+      const response = await api.get('/api/numbers/export', {
+        responseType: 'blob',
+      });
       return response;
     } catch (error) {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to export numbers'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to export numbers',
+        },
       };
     }
   },
@@ -248,11 +266,12 @@ export const cdrAPI = {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to get CDR records',
-          data: { records: [], total: 0, page: 1, per_page: 25, total_pages: 0 }
-        }
+          data: { records: [], total: 0, page: 1, per_page: 25, total_pages: 0 },
+        },
       };
     }
   },
+
   storeRecord: async (record) => {
     try {
       const response = await api.post('/api/cdr/store', { record });
@@ -261,8 +280,25 @@ export const cdrAPI = {
       return {
         data: {
           success: false,
-          error: error.response?.data?.error || error.message || 'Failed to store CDR record'
-        }
+          error: error.response?.data?.error || error.message || 'Failed to store CDR record',
+        },
+      };
+    }
+  },
+
+  export: async (params) => {
+    try {
+      const response = await api.get('/api/cdr/export', {
+        params,
+        responseType: 'blob',
+      });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to export CDR',
+        },
       };
     }
   },
@@ -279,8 +315,8 @@ export const dashboardAPI = {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to get dashboard stats',
-          data: { total_numbers: 0, total_users: 0, total_ranges: 0, today_sms: 0 }
-        }
+          data: { total_numbers: 0, total_users: 0, total_ranges: 0, today_sms: 0 },
+        },
       };
     }
   },
