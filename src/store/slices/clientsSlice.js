@@ -15,8 +15,9 @@ const clientsSlice = createSlice({
   initialState,
   reducers: {
     setClients: (state, action) => {
-      state.clients = action.payload;
-      state.filteredClients = action.payload;
+      state.clients = action.payload || [];
+      state.filteredClients = action.payload || [];
+      state.error = null;
     },
     setSearchTerm: (state, action) => {
       state.searchTerm = action.payload;
@@ -42,5 +43,13 @@ const clientsSlice = createSlice({
   },
 });
 
-export const { setClients, setSearchTerm, setPageSize, setCurrentPage, setLoading, setError } = clientsSlice.actions;
+export const {
+  setClients,
+  setSearchTerm,
+  setPageSize,
+  setCurrentPage,
+  setLoading,
+  setError,
+} = clientsSlice.actions;
+
 export default clientsSlice.reducer;
