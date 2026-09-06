@@ -76,7 +76,9 @@ const Clients = () => {
             <input type="text" value={searchTerm} onChange={(e) => dispatch(setSearchTerm(e.target.value))} className="input-field pl-9 text-sm" placeholder="Search clients..." />
           </div>
           <select value={pageSize} onChange={(e) => dispatch(setPageSize(Number(e.target.value)))} className="select-field w-20 sm:w-24 text-sm">
-            <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
           </select>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -141,7 +143,7 @@ const Clients = () => {
             <button onClick={() => dispatch(setCurrentPage(Math.max(1, currentPage - 1)))} disabled={currentPage === 1} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50 disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
             {getPageNumbers().map(page => <button key={page} onClick={() => dispatch(setCurrentPage(page))} className={`px-2 py-1 rounded-lg text-xs font-medium ${currentPage === page ? 'bg-brand-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}>{page}</button>)}
             <button onClick={() => dispatch(setCurrentPage(Math.min(totalPages, currentPage + 1)))} disabled={currentPage === totalPages} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50 disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
-            <button onClick={() => dispatch(setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="px-2 py-1 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 disabled:opacity-50">Last</button>
+            <button onClick={() => dispatch(setCurrentPage(totalPages))} disabled={currentPage === totalPages} className="px-2 py-1 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 disabled:opacity-50">Last</button>
           </div>
         </div>
       )}
