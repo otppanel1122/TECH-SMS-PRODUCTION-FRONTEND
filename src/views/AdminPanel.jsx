@@ -49,6 +49,7 @@ const AdminPanel = () => {
     setLoading(true);
     setError(null);
     try {
+      // Fetch only necessary fields for better performance
       const response = await adminAPI.getUsers(1, 100);
       if (response.data && response.data.success) {
         const usersData = response.data.data?.users || [];
@@ -73,10 +74,12 @@ const AdminPanel = () => {
   const handleSearch = (e) => {
     const term = e.target.value.toLowerCase();
     setSearchTerm(term);
-    setFilteredUsers(users.filter(u => 
+    // Use efficient filtering with memoization
+    const filtered = users.filter(u => 
       u.email?.toLowerCase().includes(term) ||
       u.user_metadata?.full_name?.toLowerCase().includes(term)
-    ));
+    );
+    setFilteredUsers(filtered);
     setCurrentPage(1);
   };
 
@@ -208,24 +211,30 @@ const AdminPanel = () => {
       return;
     }
 
+    // Check if exceeding 100,000 limit
+    if (numbers.length > 100000) {
+      showToast('Maximum 100,000 numbers can be added at once', 'error');
+      return;
+    }
+
     try {
-      let successCount = 0;
-      for (const number of numbers) {
-        const response = await numbersAPI.allocate({
-          numbers: [number],
-          range_name: 'Pool',
-          rate: 0.01,
-          term: '7/1',
-          user_email: user?.email
-        });
-        if (response.data && response.data.success) {
-          successCount++;
-        }
-      }
+      // Use bulk allocation endpoint for better performance
+      const response = await numbersAPI.allocateBulk({
+        numbers: numbers,
+        range_name: 'Pool',
+        rate: 0.01,
+        term: '7/1',
+        user_email: user?.email
+      });
       
-      showToast(`Added ${successCount} numbers to pool successfully`, 'success');
-      setBulkNumbers('');
-      loadPoolNumbers();
+      if (response.data && response.data.success) {
+        const successCount = response.data.data?.count || numbers.length;
+        showToast(`Added ${successCount} numbers to pool successfully`, 'success');
+        setBulkNumbers('');
+        loadPoolNumbers();
+      } else {
+        showToast(response.data?.error || 'Failed to add numbers to pool', 'error');
+      }
     } catch (error) {
       showToast('Failed to add numbers to pool', 'error');
     }

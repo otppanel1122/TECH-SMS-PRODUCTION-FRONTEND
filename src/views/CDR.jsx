@@ -8,6 +8,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 const CDR = () => {
   const dispatch = useDispatch();
   const { records, filteredRecords, filters, summary, loading, error, total, page, perPage } = useSelector((state) => state.cdr);
+  const { user } = useSelector((state) => state.auth);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPageState, setPerPageState] = useState(25);
   const [showFilters, setShowFilters] = useState(true);
@@ -16,6 +17,7 @@ const CDR = () => {
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [expandedMessages, setExpandedMessages] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [myNumbers, setMyNumbers] = useState([]);
 
   useEffect(() => {
     loadFilterOptions();
@@ -32,6 +34,7 @@ const CDR = () => {
       const response = await numbersAPI.getMyNumbers();
       if (response.data.success) {
         const numbers = response.data.data.numbers || [];
+        setMyNumbers(numbers);
         const uniqueRanges = new Set();
         const uniqueClients = new Set();
         numbers.forEach(num => {
@@ -48,33 +51,72 @@ const CDR = () => {
     }
   };
 
-  const loadRecords = useCallback(async (page = 1, perPage = 25) => {
+  const loadRecords = useCallback(async (pageNum = 1, perPageVal = 25) => {
     setIsRefreshing(true);
+    dispatch(setLoading(true));
     try {
-      const params = { page, per_page: perPage };
-      if (filters.fromDate) params.start_date = filters.fromDate;
-      if (filters.toDate) params.end_date = filters.toDate;
-      if (filters.range && filters.range !== 'All ranges') params.range_name = filters.range;
-      if (filters.client && filters.client !== 'All clients') params.allocated_to = filters.client;
-
-      const response = await cdrAPI.getRecords(params);
-      if (response.data.success) {
-        const data = response.data.data;
+      // First, fetch all CDR records from the API
+      const allRecordsResponse = await cdrAPI.getAllRecords();
+      
+      if (allRecordsResponse.data.success) {
+        let allRecords = allRecordsResponse.data.data.records || [];
+        
+        // Filter records by user's numbers on the frontend
+        const myNumberList = myNumbers.length > 0 
+          ? myNumbers.map(n => n.number) 
+          : [];
+        
+        // If we have user's numbers, filter CDR records to only show those
+        let filteredRecords = allRecords;
+        if (myNumberList.length > 0) {
+          filteredRecords = allRecords.filter(record => 
+            myNumberList.includes(record.sender_id) || 
+            myNumberList.some(num => record.message?.includes(num))
+          );
+        }
+        
+        // Apply additional filters
+        if (filters.fromDate) {
+          const fromDate = new Date(filters.fromDate);
+          filteredRecords = filteredRecords.filter(r => 
+            new Date(r.created_at || r.timestamp) >= fromDate
+          );
+        }
+        if (filters.toDate) {
+          const toDate = new Date(filters.toDate);
+          toDate.setHours(23, 59, 59);
+          filteredRecords = filteredRecords.filter(r => 
+            new Date(r.created_at || r.timestamp) <= toDate
+          );
+        }
+        if (filters.range && filters.range !== 'All ranges') {
+          filteredRecords = filteredRecords.filter(r => r.range_name === filters.range);
+        }
+        if (filters.client && filters.client !== 'All clients') {
+          filteredRecords = filteredRecords.filter(r => r.allocated_to === filters.client);
+        }
+        
+        // Paginate the filtered results
+        const totalRecords = filteredRecords.length;
+        const startIndex = (pageNum - 1) * perPageVal;
+        const paginatedRecords = filteredRecords.slice(startIndex, startIndex + perPageVal);
+        
         dispatch(setRecords({
-          records: data.records || [],
-          total: data.total || 0,
-          page: data.page || 1,
-          perPage: data.per_page || 25,
+          records: paginatedRecords,
+          total: totalRecords,
+          page: pageNum,
+          perPage: perPageVal,
         }));
       } else {
-        dispatch(setError(response.data.error || 'Failed to load CDR records'));
+        dispatch(setError(allRecordsResponse.data.error || 'Failed to load CDR records'));
       }
     } catch (error) {
       dispatch(setError(error.response?.data?.error || error.message));
     } finally {
       setIsRefreshing(false);
+      dispatch(setLoading(false));
     }
-  }, [filters, dispatch]);
+  }, [filters, myNumbers, dispatch]);
 
   const handleFilterChange = (key, value) => {
     dispatch(setFilter({ key, value }));

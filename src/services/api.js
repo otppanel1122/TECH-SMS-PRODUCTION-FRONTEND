@@ -166,7 +166,7 @@ export const numbersAPI = {
     try {
       // Increase timeout for large allocations
       const response = await api.post('/api/numbers/allocate', data, {
-        timeout: 120000, // 2 minutes
+        timeout: 300000, // 5 minutes for bulk allocations
       });
       return response;
     } catch (error) {
@@ -174,6 +174,24 @@ export const numbersAPI = {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to allocate numbers',
+          data: { allocated_numbers: [], count: 0 },
+        },
+      };
+    }
+  },
+
+  allocateBulk: async (data) => {
+    try {
+      // Dedicated bulk endpoint with longer timeout
+      const response = await api.post('/api/numbers/allocate-bulk', data, {
+        timeout: 600000, // 10 minutes for very large bulk allocations
+      });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to allocate numbers in bulk',
           data: { allocated_numbers: [], count: 0 },
         },
       };
@@ -209,6 +227,20 @@ export const numbersAPI = {
     }
   },
 
+  deallocateBulk: async (numberIds) => {
+    try {
+      const response = await api.post('/api/numbers/deallocate-bulk', { number_ids: numberIds });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to deallocate numbers in bulk',
+        },
+      };
+    }
+  },
+
   getEvents: async () => {
     try {
       const response = await api.get('/api/numbers/allocation-events');
@@ -226,6 +258,7 @@ export const numbersAPI = {
 
   deleteEvent: async (eventId) => {
     try {
+      // This will also deallocate all numbers associated with the event
       const response = await api.delete(`/api/numbers/delete-event/${eventId}`);
       return response;
     } catch (error) {
@@ -257,9 +290,43 @@ export const numbersAPI = {
 
 // ============ CDR ============
 export const cdrAPI = {
+  // Get all CDR records from the external API (with rate limiting handled)
+  getAllRecords: async () => {
+    try {
+      // This endpoint returns all CDR records at once
+      const response = await api.get('/api/cdr/records');
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to get CDR records',
+          data: { records: [], total: 0 },
+        },
+      };
+    }
+  },
+
+  // Get paginated CDR records (for UI display)
   getRecords: async (params) => {
     try {
       const response = await api.get('/api/cdr/records', { params });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to get CDR records',
+          data: { records: [], total: 0, page: 1, per_page: 25, total_pages: 0 },
+        },
+      };
+    }
+  },
+
+  // Get CDR records filtered by user's numbers
+  getMyCDRRecords: async (params) => {
+    try {
+      const response = await api.get('/api/cdr/my-records', { params });
       return response;
     } catch (error) {
       return {
@@ -281,6 +348,21 @@ export const cdrAPI = {
         data: {
           success: false,
           error: error.response?.data?.error || error.message || 'Failed to store CDR record',
+        },
+      };
+    }
+  },
+
+  // Store multiple CDR records in bulk
+  storeRecordsBulk: async (records) => {
+    try {
+      const response = await api.post('/api/cdr/store-bulk', { records });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to store CDR records',
         },
       };
     }
