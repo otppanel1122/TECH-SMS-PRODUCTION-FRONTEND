@@ -39,34 +39,237 @@ export const authAPI = {
 
 // ============ ADMIN ============
 export const adminAPI = {
-  getUsers: (page = 1, perPage = 20) => api.get('/api/admin/users', { params: { page, per_page: perPage } }),
-  createUser: (data) => api.post('/api/admin/users/create', data),
-  deleteUser: (userId) => api.delete(`/api/admin/users/${userId}`),
-  changeRole: (userId, role) => api.post(`/api/admin/users/${userId}/role`, { role }),
-  banUser: (userId) => api.post(`/api/admin/users/${userId}/ban`),
-  unbanUser: (userId) => api.post(`/api/admin/users/${userId}/unban`),
-  getStats: () => api.get('/api/admin/stats'),
-  getUserStats: () => api.get('/api/admin/user-stats'),
+  getUsers: async (page = 1, perPage = 20) => {
+    try {
+      const response = await api.get('/api/admin/users', { 
+        params: { page, per_page: perPage } 
+      });
+      return response;
+    } catch (error) {
+      // Return structured error response
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to fetch users',
+          data: { users: [], total: 0, page: 1, per_page: 20, total_pages: 0 }
+        }
+      };
+    }
+  },
+  createUser: async (data) => {
+    try {
+      const response = await api.post('/api/admin/users/create', data);
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to create user'
+        }
+      };
+    }
+  },
+  deleteUser: async (userId) => {
+    try {
+      const response = await api.delete(`/api/admin/users/${userId}`);
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to delete user'
+        }
+      };
+    }
+  },
+  changeRole: async (userId, role) => {
+    try {
+      const response = await api.post(`/api/admin/users/${userId}/role`, { role });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to change role'
+        }
+      };
+    }
+  },
+  banUser: async (userId) => {
+    try {
+      const response = await api.post(`/api/admin/users/${userId}/ban`);
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to ban user'
+        }
+      };
+    }
+  },
+  unbanUser: async (userId) => {
+    try {
+      const response = await api.post(`/api/admin/users/${userId}/unban`);
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to unban user'
+        }
+      };
+    }
+  },
+  getStats: async () => {
+    try {
+      const response = await api.get('/api/admin/stats');
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to get stats',
+          data: {}
+        }
+      };
+    }
+  },
+  getUserStats: async () => {
+    try {
+      const response = await api.get('/api/admin/user-stats');
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to get user stats',
+          data: { users: [], total: 0, total_numbers: 0 }
+        }
+      };
+    }
+  },
 };
 
 // ============ NUMBERS ============
 export const numbersAPI = {
-  allocate: (data) => api.post('/api/numbers/allocate', data),
-  getMyNumbers: () => api.get('/api/numbers/my-numbers'),
-  deallocate: (numberId) => api.delete(`/api/numbers/deallocate/${numberId}`),
-  getEvents: () => api.get('/api/numbers/allocation-events'),
-  deleteEvent: (eventId) => api.delete(`/api/numbers/delete-event/${eventId}`),
+  allocate: async (data) => {
+    try {
+      const response = await api.post('/api/numbers/allocate', data);
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to allocate numbers',
+          data: { allocated_numbers: [], count: 0 }
+        }
+      };
+    }
+  },
+  getMyNumbers: async () => {
+    try {
+      const response = await api.get('/api/numbers/my-numbers');
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to get numbers',
+          data: { numbers: [], count: 0 }
+        }
+      };
+    }
+  },
+  deallocate: async (numberId) => {
+    try {
+      const response = await api.delete(`/api/numbers/deallocate/${numberId}`);
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to deallocate number'
+        }
+      };
+    }
+  },
+  getEvents: async () => {
+    try {
+      const response = await api.get('/api/numbers/allocation-events');
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to get events',
+          data: { events: [], count: 0 }
+        }
+      };
+    }
+  },
+  deleteEvent: async (eventId) => {
+    try {
+      const response = await api.delete(`/api/numbers/delete-event/${eventId}`);
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to delete event'
+        }
+      };
+    }
+  },
 };
 
 // ============ CDR ============
 export const cdrAPI = {
-  getRecords: (params) => api.get('/api/cdr/records', { params }),
-  storeRecord: (record) => api.post('/api/cdr/store', { record }),
+  getRecords: async (params) => {
+    try {
+      const response = await api.get('/api/cdr/records', { params });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to get CDR records',
+          data: { records: [], total: 0, page: 1, per_page: 25, total_pages: 0 }
+        }
+      };
+    }
+  },
+  storeRecord: async (record) => {
+    try {
+      const response = await api.post('/api/cdr/store', { record });
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to store CDR record'
+        }
+      };
+    }
+  },
 };
 
 // ============ DASHBOARD ============
 export const dashboardAPI = {
-  getStats: () => api.get('/api/dashboard/stats'),
+  getStats: async () => {
+    try {
+      const response = await api.get('/api/dashboard/stats');
+      return response;
+    } catch (error) {
+      return {
+        data: {
+          success: false,
+          error: error.response?.data?.error || error.message || 'Failed to get dashboard stats',
+          data: { total_numbers: 0, total_users: 0, total_ranges: 0, today_sms: 0 }
+        }
+      };
+    }
+  },
 };
 
 export default api;
