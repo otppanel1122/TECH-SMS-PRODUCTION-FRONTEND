@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { RefreshCw, ChevronLeft, ChevronRight, UserPlus, Ban, Check, Trash2 } from 'lucide-react';
-import { adminAPI } from '../services/api';
+import { 
+  RefreshCw, ChevronLeft, ChevronRight, UserPlus, Ban, Check, Trash2, 
+  Plus, Phone, Users, X, Upload, Copy, FileText, FileSpreadsheet 
+} from 'lucide-react';
+import { adminAPI, numbersAPI } from '../services/api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const AdminPanel = () => {
@@ -17,9 +20,23 @@ const AdminPanel = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', full_name: '', role: 'user' });
   const [toast, setToast] = useState(null);
+  
+  // Number Pool State
+  const [poolNumbers, setPoolNumbers] = useState([]);
+  const [poolLoading, setPoolLoading] = useState(true);
+  const [showAddNumberModal, setShowAddNumberModal] = useState(false);
+  const [newNumber, setNewNumber] = useState({
+    number: '',
+    range_name: '',
+    rate: 0.01,
+    term: '7/1'
+  });
+  const [bulkNumbers, setBulkNumbers] = useState('');
+  const [selectedPoolNumbers, setSelectedPoolNumbers] = useState([]);
 
   useEffect(() => {
     loadUsers();
+    loadPoolNumbers();
   }, []);
 
   const showToast = (message, type = 'success') => {
@@ -27,6 +44,7 @@ const AdminPanel = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // ========== USER MANAGEMENT ==========
   const loadUsers = async () => {
     setLoading(true);
     setError(null);
@@ -137,6 +155,128 @@ const AdminPanel = () => {
     }
   };
 
+  // ========== NUMBER POOL MANAGEMENT ==========
+  const loadPoolNumbers = async () => {
+    setPoolLoading(true);
+    try {
+      const response = await numbersAPI.getMyNumbers();
+      if (response.data && response.data.success) {
+        setPoolNumbers(response.data.data?.numbers || []);
+      } else {
+        setPoolNumbers([]);
+      }
+    } catch (error) {
+      console.error('Error loading pool numbers:', error);
+      setPoolNumbers([]);
+    } finally {
+      setPoolLoading(false);
+    }
+  };
+
+  const handleAddNumber = async (e) => {
+    e.preventDefault();
+    try {
+      // Call the allocate endpoint to add numbers to pool
+      const response = await numbersAPI.allocate({
+        numbers: [newNumber.number],
+        range_name: newNumber.range_name,
+        rate: parseFloat(newNumber.rate),
+        term: newNumber.term,
+        user_email: user?.email // Add to pool under admin/agent
+      });
+      
+      if (response.data && response.data.success) {
+        showToast(`Number ${newNumber.number} added to pool successfully`, 'success');
+        setShowAddNumberModal(false);
+        setNewNumber({ number: '', range_name: '', rate: 0.01, term: '7/1' });
+        loadPoolNumbers();
+      } else {
+        showToast(response.data?.error || 'Failed to add number', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to add number to pool', 'error');
+    }
+  };
+
+  const handleBulkAddNumbers = async () => {
+    const numbers = bulkNumbers.split('\n')
+      .map(n => n.trim())
+      .filter(n => n.length > 0);
+    
+    if (numbers.length === 0) {
+      showToast('Please paste at least one number', 'error');
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      for (const number of numbers) {
+        const response = await numbersAPI.allocate({
+          numbers: [number],
+          range_name: 'Pool',
+          rate: 0.01,
+          term: '7/1',
+          user_email: user?.email
+        });
+        if (response.data && response.data.success) {
+          successCount++;
+        }
+      }
+      
+      showToast(`Added ${successCount} numbers to pool successfully`, 'success');
+      setBulkNumbers('');
+      loadPoolNumbers();
+    } catch (error) {
+      showToast('Failed to add numbers to pool', 'error');
+    }
+  };
+
+  const handleRemoveFromPool = async (numberId) => {
+    if (!confirm('Remove this number from pool?')) return;
+    try {
+      const response = await numbersAPI.deallocate(numberId);
+      if (response.data && response.data.success) {
+        showToast('Number removed from pool', 'success');
+        loadPoolNumbers();
+      } else {
+        showToast(response.data?.error || 'Failed to remove number', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to remove number', 'error');
+    }
+  };
+
+  const handleAssignToUser = async (numberId, userEmail) => {
+    if (!userEmail) {
+      showToast('Please select a user', 'error');
+      return;
+    }
+    try {
+      const number = poolNumbers.find(n => n.id === numberId);
+      if (!number) {
+        showToast('Number not found', 'error');
+        return;
+      }
+      
+      const response = await numbersAPI.allocate({
+        numbers: [number.number],
+        range_name: number.range_name || 'Assigned',
+        rate: number.rate || 0.01,
+        term: number.term || '7/1',
+        user_email: userEmail
+      });
+      
+      if (response.data && response.data.success) {
+        showToast(`Number assigned to ${userEmail}`, 'success');
+        loadPoolNumbers();
+      } else {
+        showToast(response.data?.error || 'Failed to assign number', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to assign number', 'error');
+    }
+  };
+
   const totalPages = Math.ceil(filteredUsers.length / perPage);
   const startIndex = (currentPage - 1) * perPage;
   const paginatedUsers = filteredUsers.slice(startIndex, startIndex + perPage);
@@ -154,6 +294,12 @@ const AdminPanel = () => {
     return pages;
   };
 
+  // Helper to get user name from email
+  const getUserName = (email) => {
+    const found = users.find(u => u.email === email);
+    return found?.user_metadata?.full_name || email?.split('@')[0] || email;
+  };
+
   if (userRole !== 'admin' && userRole !== 'agent') {
     return (
       <div className="glass-card p-8 text-center text-rose-600 dark:text-rose-400">
@@ -161,8 +307,6 @@ const AdminPanel = () => {
       </div>
     );
   }
-
-  if (loading) return <div className="flex items-center justify-center h-64"><LoadingSpinner size="lg" /></div>;
 
   return (
     <div className="space-y-6">
@@ -177,9 +321,118 @@ const AdminPanel = () => {
         </div>
       )}
 
+      {/* ===== NUMBER POOL MANAGEMENT ===== */}
+      <div className="glass-card p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Phone className="w-5 h-5" /> Number Pool
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {poolNumbers.length} numbers available in pool
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setShowAddNumberModal(true)} 
+              className="btn-primary text-sm flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Add Number
+            </button>
+            <button 
+              onClick={loadPoolNumbers} 
+              className="btn-secondary text-sm flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {poolLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <LoadingSpinner size="md" />
+          </div>
+        ) : (
+          <div className="table-container overflow-x-auto">
+            <div className="min-w-[700px]">
+              <table>
+                <thead>
+                  <tr>
+                    <th className="px-4 py-3 text-left">Number</th>
+                    <th className="px-4 py-3 text-left">Range</th>
+                    <th className="px-4 py-3 text-right">Rate</th>
+                    <th className="px-4 py-3 text-left">Term</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {poolNumbers.length > 0 ? poolNumbers.map((num) => (
+                    <tr key={num.id}>
+                      <td className="px-4 py-3 font-mono text-sm text-slate-900 dark:text-white">{num.number}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                        <span className="number-range-badge">{num.range_name || 'Pool'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">${num.rate?.toFixed(3) || '0.000'}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{num.term || '7/1'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`badge-${num.allocated_to ? 'success' : 'info'}`}>
+                          {num.allocated_to ? 'Assigned' : 'Available'}
+                        </span>
+                        {num.allocated_to && (
+                          <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
+                            → {getUserName(num.allocated_to)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          {!num.allocated_to && (
+                            <select 
+                              onChange={(e) => handleAssignToUser(num.id, e.target.value)}
+                              className="select-field text-xs py-1 w-32"
+                              defaultValue=""
+                            >
+                              <option value="">Assign to...</option>
+                              {users
+                                .filter(u => u.id !== user?.id && !u.banned)
+                                .map(u => (
+                                  <option key={u.id} value={u.email}>
+                                    {u.user_metadata?.full_name || u.email?.split('@')[0] || u.email}
+                                  </option>
+                                ))
+                              }
+                            </select>
+                          )}
+                          <button 
+                            onClick={() => handleRemoveFromPool(num.id)}
+                            className="p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                          >
+                            <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan="6" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                        No numbers in pool. Add numbers using the "Add Number" button.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ===== USER MANAGEMENT ===== */}
       <div className="glass-card px-6 py-4 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">User Management</h2>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+            <Users className="w-5 h-5" /> User Management
+          </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Total: {users.length} users</p>
           {error && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{error}</p>}
         </div>
@@ -347,7 +600,7 @@ const AdminPanel = () => {
         </div>
       )}
 
-      {/* Create User Modal */}
+      {/* ===== CREATE USER MODAL ===== */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="glass-card w-full max-w-md p-6">
@@ -400,6 +653,95 @@ const AdminPanel = () => {
                 <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary">Cancel</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===== ADD NUMBER MODAL ===== */}
+      {showAddNumberModal && (
+        <div className="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Add Number to Pool</h3>
+              <button onClick={() => setShowAddNumberModal(false)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Single Number */}
+              <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Add Single Number</h4>
+                <form onSubmit={handleAddNumber} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Number *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={newNumber.number} 
+                      onChange={(e) => setNewNumber({...newNumber, number: e.target.value})} 
+                      className="input-field text-sm" 
+                      placeholder="e.g., 447441837649" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Range Name</label>
+                    <input 
+                      type="text" 
+                      value={newNumber.range_name} 
+                      onChange={(e) => setNewNumber({...newNumber, range_name: e.target.value})} 
+                      className="input-field text-sm" 
+                      placeholder="e.g., UK 01" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Rate ($)</label>
+                      <input 
+                        type="number" 
+                        step="0.001" 
+                        value={newNumber.rate} 
+                        onChange={(e) => setNewNumber({...newNumber, rate: parseFloat(e.target.value) || 0})} 
+                        className="input-field text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Term</label>
+                      <input 
+                        type="text" 
+                        value={newNumber.term} 
+                        onChange={(e) => setNewNumber({...newNumber, term: e.target.value})} 
+                        className="input-field text-sm" 
+                        placeholder="7/1" 
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn-primary w-full text-sm flex items-center justify-center gap-2">
+                    <Plus className="w-4 h-4" /> Add Number
+                  </button>
+                </form>
+              </div>
+
+              {/* Bulk Numbers */}
+              <div>
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Bulk Add Numbers</h4>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">Paste Numbers (one per line)</label>
+                  <textarea 
+                    value={bulkNumbers} 
+                    onChange={(e) => setBulkNumbers(e.target.value)} 
+                    className="input-field text-sm min-h-[100px] font-mono" 
+                    placeholder="447441837649&#10;447441837650&#10;447441837651"
+                  />
+                </div>
+                <button 
+                  onClick={handleBulkAddNumbers} 
+                  className="btn-success w-full text-sm flex items-center justify-center gap-2 mt-3"
+                >
+                  <Upload className="w-4 h-4" /> Bulk Add Numbers
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
