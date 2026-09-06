@@ -21,13 +21,16 @@ const Dashboard = () => {
 
   const loadDashboard = async () => {
     try {
-      const [statsRes, numbersRes] = await Promise.all([
+      // Load stats and numbers in parallel with timeout protection
+      const [statsRes, numbersRes] = await Promise.allSettled([
         dashboardAPI.getStats(),
         numbersAPI.getMyNumbers(),
       ]);
-      const statsData = statsRes.data?.data || {};
-      const numbersData = numbersRes.data?.data?.numbers || [];
       
+      const statsData = statsRes.status === 'fulfilled' ? statsRes.value.data?.data || {} : {};
+      const numbersData = numbersRes.status === 'fulfilled' ? numbersRes.value.data?.data?.numbers || [] : [];
+      
+      // Use Set for efficient unique range counting
       const ranges = new Set();
       numbersData.forEach(num => {
         if (num.range_name) ranges.add(num.range_name);

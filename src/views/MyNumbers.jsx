@@ -90,13 +90,24 @@ const MyNumbers = () => {
     if (!selectedClient || selectedNumbers.length === 0) return;
     try {
       const numbersToAssign = numbers.filter(num => selectedNumbers.includes(num.id)).map(num => num.number);
-      const response = await numbersAPI.allocate({
-        numbers: numbersToAssign,
-        range_name: 'Assigned',
-        rate: 0.01,
-        term: '7/1',
-        user_email: selectedClient,
-      });
+      
+      // Use bulk allocation for better performance when assigning many numbers
+      const response = numbersToAssign.length > 100 
+        ? await numbersAPI.allocateBulk({
+            numbers: numbersToAssign,
+            range_name: 'Assigned',
+            rate: 0.01,
+            term: '7/1',
+            user_email: selectedClient,
+          })
+        : await numbersAPI.allocate({
+            numbers: numbersToAssign,
+            range_name: 'Assigned',
+            rate: 0.01,
+            term: '7/1',
+            user_email: selectedClient,
+          });
+          
       if (response.data.success) {
         showToast(`Assigned ${numbersToAssign.length} numbers to ${selectedClient}`, 'success');
         setShowAssignModal(false);
@@ -114,21 +125,14 @@ const MyNumbers = () => {
     if (selectedNumbers.length === 0) return;
     if (!confirm(`Return ${selectedNumbers.length} numbers?`)) return;
     try {
-      let successCount = 0;
-      for (const numId of selectedNumbers) {
-        const num = numbers.find(n => n.id === numId);
-        if (num && num.allocated_to) {
-          try {
-            await numbersAPI.deallocate(numId);
-            successCount++;
-          } catch (e) { console.error(e); }
-        }
-      }
-      if (successCount > 0) {
-        showToast(`Returned ${successCount} numbers`, 'success');
+      // Use bulk deallocation for better performance
+      const response = await numbersAPI.deallocateBulk(selectedNumbers);
+      if (response.data && response.data.success) {
+        const count = response.data.data?.count || selectedNumbers.length;
+        showToast(`Returned ${count} numbers`, 'success');
         loadNumbers();
       } else {
-        showToast('Failed to return numbers', 'error');
+        showToast(response.data.error || 'Failed to return numbers', 'error');
       }
     } catch (error) {
       showToast(error.response?.data?.error || error.message, 'error');
